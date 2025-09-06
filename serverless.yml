@@ -1,0 +1,90 @@
+service: user-auth-service
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+
+  httpApi:
+    cors:
+      allowedOrigins:
+        - '*'
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+        - X-Requested-With
+        - X-Amz-Date
+        - X-Api-Key
+        - X-Amz-Security-Token
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+
+  environment:
+    DYNAMODB_TABLE_NAME: ${self:service}-users-${self:provider.stage}
+    JWT_SECRET: ${env:JWT_SECRET, 'your-super-secret-jwt-key-change-in-production'}
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:Query
+        - dynamodb:Scan
+      Resource:
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE_NAME}
+
+package:
+  patterns:
+    - '!src/**'
+    - 'build/**'
+    - '!*.ts'
+    - '!tsconfig.json'
+    - '!.eslintrc.js'
+    - '!jest.config.js'
+    - "!node_modules/@mapbox/node-pre-gyp/**"
+    - "!**/*.html"
+    - "!**/test/**"
+    - "!**/*.test.js"
+
+functions:
+  authHandler:
+    handler: build/handlers/auth.handler
+    events:
+      - httpApi:
+          path: /api/register
+          method: post
+      - httpApi:
+          path: /api/login
+          method: post
+      - httpApi:
+          path: /api/health
+          method: get
+      - httpApi:
+          path: /api/user/{id}
+          method: get
+    timeout: 130
+    memorySize: 256
+
+plugins:
+  - serverless-offline
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: email
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
