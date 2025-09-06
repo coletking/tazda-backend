@@ -1,4 +1,4 @@
-// routes/types.ts
+
 import { APIGatewayProxyResultV2 } from 'aws-lambda';
 import { AuthenticatedRequest } from '../middleware';
 
